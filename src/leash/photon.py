@@ -1,14 +1,19 @@
-"""Manager for communicating with a Photon Feeder Bus
-"""
+"""Manager for communicating with a Photon Feeder Bus."""
 
 import enum
 import re
+from logging import Logger
 
-from . import logger
+from .serial import SerialManager
+
+
+MAX_ADDRESS = 0x0FF
 
 class Commands(enum.IntEnum):
+    """Enum class with commands."""
+
     GET_FEEDER_ID = 0x01
-    INITIALIZE_FEEDER = 0x02 
+    INITIALIZE_FEEDER = 0x02
     GET_VERSION = 0x03
     MOVE_FEED_FORWARD = 0x04
     MOVE_FEED_BACKWARD = 0x05
@@ -19,24 +24,19 @@ class Commands(enum.IntEnum):
     PROGRAM_FEEDER_FLOOR = 0xc2
     UNINITIALIZED_FEEDERS_RESPOND = 0xc3
 
-class Photon():
+class Photon:
+    """Photon feeder class."""
 
-    def __init__(self, sm, log):
-
+    def __init__(self, sm:SerialManager, log:Logger)->None:
+        """Initialize Photon feeder."""
         self.sm = sm
         self.log = log
-        
         self._packetID = 0x00
-
         self._outstandingPackets = []
-
         self.activeFeeders = []
 
-        # PRIVATE
-
-        ## Bus Utils
-
-    def crc(self, data: bytes) -> int:
+    def crc(self, data:list) -> int:
+        """Calculate CRC."""
         crc: int = 0
         for byte in data:
             crc ^= (byte << 8)
@@ -44,196 +44,160 @@ class Photon():
                 if crc & 0x8000:
                     crc ^= (0x1070 << 3)
                 crc <<= 1
-        
         return (crc >> 8) & 0xFF
-    
-    def byteArrayToString(self, byteArray):
-        hexString = ""
-        for i in byteArray:
+
+    def byte_array_to_string(self, byte_array:list)->str:
+        """Convert byte array to string."""
+        hex_string = ""
+        for i in byte_array:
             converted = hex(i)[2:]
             if len(converted) == 1:
                 converted = "0" + converted
-            hexString = hexString + converted
+            hex_string += converted
+        return hex_string
 
-        return hexString
-
-    def incrementPacketID(self):
-        if self._packetID == 0xFF:
+    def increment_packet_id(self)->None:
+        """Increment id of packet."""
+        hex_max_value = 0xFF
+        if self._packetID == hex_max_value:
             self._packetID = 0x00
         else:
             self._packetID = self._packetID + 1
 
-    def buildPacketFromBytes(self, packet):
-
+    def build_packet_from_bytes(self, packet:list)->str:
+        """Build packet from given list of parts."""
         crc = self.crc(packet)
-
         packet.insert(4, crc)
-
-        packetString = "M485 "
-
+        packet_string = "M485 "
         # convert byte to string and append to packetString
         for i in packet:
             converted = hex(i)[2:]
             if len(converted) == 1:
                 converted = "0" + converted
-            packetString = packetString + converted
+            packet_string = packet_string + converted
 
-        return packetString
+        return packet_string
 
-    def buildBytesFromPacket(self, responseString):
-        byteArray = []
-
-        for i in range(int(len(responseString)/2)):
+    def build_bytes_from_packet(self, response:str)->list:
+        """Build byte list from packet."""
+        byte_array = []
+        for i in range(int(len(response)/2)):
             index = i*2
-            sliced = responseString[index:index+2]
+            sliced = response[index:index+2]
             hexed = int(sliced, 16)
-            byteArray.append(hexed)
+            byte_array.append(hexed)
+        return byte_array
 
-        return byteArray
 
-
-    def sendPacket(self, address, command: Commands, payload = None):
-
+    def send_packet(self, address:int, command: Commands,
+                    payload:list|None = None)->list:
+        """Send packet to LumenPnP."""
         self.log.info("Sending packet payload: " + str(payload))
         # builds a packet without crc
         if payload is None:
             packet = [address, 0x00, self._packetID, 1, command]
         else:
-            packet = [address, 0x00, self._packetID, len(payload) + 1, command] + payload
-
-        sentPacketID = self._packetID
-
-        gcode = self.buildPacketFromBytes(packet)
-
+            packet = [address, 0, self._packetID,
+                      len(payload) + 1, command, *payload]
+        sent_packet_id = self._packetID
+        gcode = self.build_packet_from_bytes(packet)
         self.log.info("Gcode to send: " + str(gcode))
-
         # open serial, send packet, close it
-        self.sm._ser.read_all()
+        self.sm.ser.read_all()
         response = self.sm.send(gcode).strip()
+        self.increment_packet_id()
+        re_match = re.search("rs485-reply: (.*)", response).group(1)
 
-        self.incrementPacketID()
-
-        reMatch = re.search("rs485-reply: (.*)", response).group(1)
-
-        if reMatch == None or reMatch == "TIMEOUT":
+        if re_match in {None, "TIMEOUT"}:
             return -1
-        else:
-            byteArray = self.buildBytesFromPacket(reMatch)
+        byte_array = self.build_bytes_from_packet(re_match)
 
-            if byteArray[0] != 0x00:
-                self.log.error("Received packet not addressed to host.")
-                return False
+        if byte_array[0] != 0x00:
+            self.log.error("Received packet not addressed to host.")
+            return False
 
-            elif byteArray[1] != address and address != 0xFF:
-                self.log.error("Received packet not from intended receipient.")
-                return False
+        if byte_array[1] != address and address != MAX_ADDRESS:
+            self.log.error("Received packet not from intended recipient.")
+            return False
 
-            elif byteArray[2] != sentPacketID:
-                self.log.error("Received packet with wrong packet id.")
-                return False
+        if byte_array[2] != sent_packet_id:
+            self.log.error("Received packet with wrong packet id.")
+            return False
 
-            elif byteArray[3] != len(byteArray) - 5:
-                self.log.error("Received packet has wrong payload length.")
-                return False
+        if byte_array[3] != len(byte_array) - 5:
+            self.log.error("Received packet has wrong payload length.")
+            return False
 
-            else:
-                sacrificialCRC = byteArray
-                receivedCRC = sacrificialCRC[4]
-                del sacrificialCRC[4]
-                calcCRC = self.crc(sacrificialCRC)
+        sacrificial_crc = byte_array
+        received_crc = sacrificial_crc[4]
+        del sacrificial_crc[4]
+        calc_crc = self.crc(sacrificial_crc)
 
-                if receivedCRC != calcCRC:
-                    self.log.error("Received packet with wrong crc.")
-                    return False
+        if received_crc != calc_crc:
+            self.log.error("Received packet with wrong crc.")
+            return False
 
-                else:
-                    respond = byteArray[4:]
-                    return respond
+        return byte_array[4:]
 
     ## UNICAST
 
-    def getFeederUUID(self, address):
+    def get_feeder_uuid(self, address):
 
         self.log.info("Requesting UUID from address: " + str(address))
-
-        resp = self.sendPacket(address, Commands.GET_FEEDER_ID)
+        resp = self.send_packet(address, Commands.GET_FEEDER_ID)
 
         if resp == -1:
             return -1
-        elif resp == False:
+        if not resp:
             return False
-        elif resp[0] != 0x00:
+        if resp[0] != 0x00:
             return -2
-        else:
-            if len(resp[1:]) == 12:
-                return resp[1:]
-            else:
-                return False
+        if len(resp[1:]) == 12:
+            return resp[1:]
+        return False
 
-    def initializeFeeder(self, address, uuid):
+    def initialize_feeder(self, address, uuid)->bool:
 
         self.log.info("Requesting init at address: " + str(address))
+        resp = self.send_packet(address, Commands.INITIALIZE_FEEDER, payload = uuid)
+        return bool(resp != -1 and resp[0] == 0)
 
-        resp = self.sendPacket(address, Commands.INITIALIZE_FEEDER, payload = uuid)
+    def get_version(address):
+        raise NotImplementedError
 
-        if resp != -1:
-            if resp[0] == 0x00:
-                return True
-            else:
-                return False
-
-    # def getVersion(address):
-
-    def moveFeedForward(self, address, tenths):
+    def move_feed_forward(self, address, tenths)->bool:
 
         self.log.info("Requesting " + str(tenths) + " feed from address: " + str(address))
+        resp = self.send_packet(address, Commands.MOVE_FEED_FORWARD, payload = [tenths])
+        return resp[0] == 0
 
-        resp = self.sendPacket(address, Commands.MOVE_FEED_FORWARD, payload = [tenths])
+    def move_feed_backward(self, address, tenths)->bool:
 
-        if resp[0] == 0x00:
-            return True
-        else:
-            return False
+        resp = self.send_packet(address, Commands.MOVE_FEED_BACKWARD, payload = [tenths])
+        return resp[0] == 0
 
-    def moveFeedBackward(self, address, tenths):
+    def move_feed_status(self, address)->bool:
 
-        resp = self.sendPacket(address, Commands.MOVE_FEED_BACKWARD, payload = [tenths])
+        resp = self.send_packet(address, Commands.MOVE_FEED_STATUS)
+        return resp[0] == 0
 
-        if resp[0] == 0x00:
-            return True
-        else:
-            return False
+    def vendor_options(self, address, payload)->bool:
 
-    def moveFeedStatus(self, address):
-
-        resp = self.sendPacket(address, Commands.MOVE_FEED_STATUS)
-
-        if resp[0] == 0x00:
-            return True
-        else:
-            return False
-
-    def vendorOptions(self, address, payload):
-
-        resp = self.sendPacket(address, Commands.MOVE_FEED_FORWARD, payload = payload)
-
-        if resp[0] == 0x00:
-            return True
-        else:
-            return False
+        resp = self.send_packet(address, Commands.MOVE_FEED_FORWARD, payload = payload)
+        return resp[0] == 0
 
     def scan(self, min = 1, max = 50):
 
         for i in range(min, max):
 
             #see if a feeder is there
-            uuid = self.getFeederUUID(i)
+            uuid = self.get_feeder_uuid(i)
 
             #if we got a response
             if uuid is not None and uuid != -1 and uuid != -2:
 
                 #initialize
-                if self.initializeFeeder(i, uuid):
+                if self.initialize_feeder(i, uuid):
 
                     self.log.info("Initialized feeder " + str(uuid) + " at address " + str(i))
 
@@ -245,19 +209,18 @@ class Photon():
 
     ## BROADCAST
 
-    #def getFeederAddress(uuid):
+    def get_feeder_address(uuid):
+        raise NotImplementedError
 
-    def identifyFeeder(self, uuid):
+    def identify_feeder(self, uuid)->bool:
 
-        self.log.info("Requesting identify from UUID: " + str(uuid))
+        message = f"Requesting identify from UUID: {uuid!s}"
+        self.log.info(message)
+        resp = self.send_packet(0xFF, Commands.IDENTIFY_FEEDER, payload = uuid)
+        return resp[0] == 0
 
-        resp = self.sendPacket(0xFF, Commands.IDENTIFY_FEEDER, payload = uuid)
+    def program_feeder_floor(uuid, addressToProgram):
+        raise NotImplementedError
 
-        if resp[0] == 0x00:
-            return True
-        else:
-            return False
-
-    #def programFeederFloor(uuid, addressToProgram):
-
-    #def uninitilizedFeedersRespond():
+    def uninitialized_feeders_respond():
+        raise NotImplementedError

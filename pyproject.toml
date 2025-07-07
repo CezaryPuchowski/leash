@@ -5,9 +5,9 @@ build-backend = "hatchling.build"
 [project]
 name = "leash"
 dynamic = ["version"]
-description = 'Control API for the LumenPnP'
+description = "Control API for the LumenPnP"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MPLv2"}
 keywords = []
 authors = [
@@ -16,8 +16,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -26,7 +24,8 @@ classifiers = [
 ]
 dependencies = [
   "pyserial",
-  "opencv-python"
+  "opencv-python",
+  "ruff>=0.12.2",
 ]
 
 [project.urls]
@@ -39,7 +38,7 @@ path = "src/leash/__about__.py"
 
 [tool.hatch.envs.default]
 dependencies = [
-  "coverage[toml]>=6.5",
+  "coverage[toml]>=7.9.2",
   "pytest",
   "pyserial",
   "opencv-python",
@@ -60,11 +59,11 @@ cov = [
 ]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.8", "3.9", "3.10", "3.11", "3.12"]
+python = ["3.10", "3.11", "3.12"]
 
 [tool.hatch.envs.types]
 dependencies = [
-  "mypy>=1.0.0",
+  "mypy>=1.16.1",
 ]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/leash tests}"
@@ -87,3 +86,30 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.ruff]
+
+# Set the maximum line length to 79.
+line-length = 79
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+ignore = [
+    "D211", # one-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+    # Ignored because of using formatter
+    "COM812", # missing-trailing-comma
+    "D203", # one-blank-line-before-class
+    "ISC001", # single-line-implicit-string-concatenation
+    ]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"**/*_test.py" = [
+    # at least this three should be fine in tests:
+    "S101", # asserts allowed in tests...
+    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

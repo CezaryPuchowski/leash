@@ -1,19 +1,23 @@
-"""Manager for a Lumen camera
-"""
+"""Manager for a Lumen camera."""
+
+from logging import Logger
 
 import cv2
-import numpy as np
 
-class Camera():
 
-    def __init__(self, index = 1):
+class Camera:
+    """Class for a Lumen camera."""
 
+    def __init__(self, logger:Logger, index:int = 1)->None:
+        """Initialize of camera."""
         # opening camera from config settings, setting frame size
         self._capture = cv2.VideoCapture(index)
         self._capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         self._capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.log = logger
 
-    def list_cameras(self):
+    def list_cameras(self)->list:
+        """List available cameras."""
         index = 0
         cameras = []
         while True:
@@ -24,16 +28,17 @@ class Camera():
             cap.release()
             index += 1
         return cameras
-            
+
     def capture(self):
+        """Capture image from camera."""
         ret, image = self._capture.read()
         if ret is True:
             return image
-        else:
-            return False
-    
-    def getFidPosition(self, debug=False):
+        return False
 
+    def get_fid_position(self):
+        """Return precise fiducial position under camera."""
+        raise NotImplementedError
         while True:
             image = self.capture()
             if image.any():
@@ -47,11 +52,11 @@ class Camera():
 
                 cv2.imshow("img", circles)
 
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
             else:
-                print("couldnt take a pic")
-    
+                self.log.error("couldn't take a pic")
+
         self._capture.release()
         cv2.destroyAllWindows()
 
@@ -73,8 +78,5 @@ class Camera():
         #         cv2.waitKey(1)
 
         #     return (x, y, r)
-        
-        return False
-        
 
-        
+        return False

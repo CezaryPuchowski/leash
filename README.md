@@ -35,69 +35,69 @@ if lumen.connect():
         lumen.home()
 
         # Setting speed in mm/min linear travel speed
-        lumen.setSpeed(f=40000)
+        lumen.set_speed(f=40000)
 
         # sending arbitrary gcode (in this example bumping current of right toolhead to 300ma)
         lumen.sm.send("M906 B300")
 
         # .goto() sends a move command with any optional arguments x, y, z, a, and b
-        lumen.goto(x=10 y=10)
+        lumen.goto(x=10, y=10)
         lumen.goto(z=20)
 
-        lumen.safeZ()
+        lumen.safe_z()
 
         # To make sure Lumen actions align with your code timing, use lumen.sleep()
         # This just makes sure all commands are complete before delaying
         # lumen.sleep() can be handy in situations where you want to keep a pump
         # on for a certain amount of time, for example:
-        # 
-        #   lumen.rightPump.on()
+        #
+        #   lumen.right_pump.on()
         #   lumen.sleep(1)
-        #   lumen.rightPump.readPressure()
-        #   lumen.rightPump.off() 
+        #   lumen.right_pump.read_pressure()
+        #   lumen.right_pump.off()
         #
 
         lumen.sleep(2)
 
-        # If you need more control, you can use lumen.finishMoves() which blocks until
+        # If you need more control, you can use lumen.finish_moves() which blocks until
         # the Lumen's command queue is empty
-        lumen.finishMoves()
+        lumen.finish_moves()
         # You can then use any other python specific delays or timing functions afterwards
         time.sleep(1)
 
         # Pumps
 
-        lumen.leftPump.on()
+        lumen.left_pump.on()
         lumen.sleep(1)
-        print("Left sensor pressure: " + str(lumen.leftPump.getPressure()))
-        lumen.leftPump.off()
+        print("Left sensor pressure: " + str(lumen.left_pump.get_pressure()))
+        lumen.left_pump.off()
 
-        lumen.rightPump.on()
+        lumen.right_pump.on()
         lumen.sleep(1)
-        print("Right sensor pressure: " + str(lumen.rightPump.getPressure()))
-        lumen.rightPump.off()
+        print("Right sensor pressure: " + str(lumen.right_pump.getPressure()))
+        lumen.right_pump.off()
 
-        print("Left sensor temperature: " + str(lumen.leftPump.getTemperature())))
-        print("Right sensor temperature: " + str(lumen.rightPump.getTemperature()))
+        print("Left sensor temperature: " + str(lumen.left_pump.getTemperature())))
+        print("Right sensor temperature: " + str(lumen.right_pump.getTemperature()))
 
         # Ring Lights
 
-        lumen.lightOn("TOP", 218, 165, 32, 255)
+        lumen.light_on("TOP", 218, 165, 32, 255)
         lumen.sleep(1)
-        lumen.lightOff("TOP")
+        lumen.light_off("TOP")
 
-        lumen.lightOn("BOT", 218, 165, 32, 255)
+        lumen.light_on("BOT", 218, 165, 32, 255)
         lumen.sleep(1)
-        lumen.lightOff("BOT")
+        lumen.light_off("BOT")
 
         # Feeders
 
         lumen.photon.scan()
-        print(lumen.photon.activeFeeders)
+        print(lumen.photon.active_feeders)
 
         # lumen.idle() disables all pumps, valves, lights, and jogs the machine back and out of the way
         lumen.idle()
-    
+
     except KeyboardInterrupt:
         lumen.idle()
 
@@ -106,5 +106,5 @@ if lumen.connect():
 
 TODO
 
-- uvc exposure support https://github.com/jtfrey/uvc-util/tree/master
+- uvc exposure support [https://github.com/jtfrey/uvc-util/tree/master]
 - A few more simple vision commands (fid and rect position)
