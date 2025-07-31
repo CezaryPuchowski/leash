@@ -96,13 +96,13 @@ class Pump:
 
             # Read REG0x09 and REG0x0A
             self.sm.send("M260 A109 B9 S1")
-            reg0x09 = re.search("data:(..)", self.sm.send("M261 A109 B1 S1"))
+            reg0x09 = re.search("data:(..)", self.sm.send("M261 A109 B1 S1")).group(1)
 
             self.sm.send("M260 A109 B10 S1")
-            reg0x0a = re.search("data:(..)", self.sm.send("M261 A109 B1 S1"))
+            reg0x0a = re.search("data:(..)", self.sm.send("M261 A109 B1 S1")).group(1)
 
             # Calculate the temperature ADC value
-            adc_value = reg0x09 * 256 + reg0x0a
+            adc_value = int(reg0x09, base=16) * 256 + int(reg0x0a, base=16)
 
             # Determine if temperature is positive or negative
             if adc_value < 2**15:
