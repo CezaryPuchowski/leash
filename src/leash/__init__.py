@@ -200,6 +200,11 @@ class Lumen:
     def emergency_stop(self)->None:
         """Stop all stepper motor instantly."""
         self.sm.send("M410")
+        self.log.error("Emergency stop the machine!")
+
+    def shutdown(self)->None:
+        """Shuting down machine. Disables all motor and pomps."""
+        self.sm.send("M112")
 
     #####################
     # Leds
