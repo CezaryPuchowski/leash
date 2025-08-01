@@ -197,6 +197,9 @@ class Lumen:
         """Move Z axis to safe position."""
         self.goto(z=self.parkZ)
 
+    def emergency_stop(self)->None:
+        """Stop all stepper motor instantly."""
+        self.sm.send("M410")
 
     #####################
     # Leds
