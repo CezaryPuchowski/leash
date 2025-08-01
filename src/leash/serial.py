@@ -19,7 +19,8 @@ class SerialManager:
 
         self.log = log
 
-    def clear_queue(self, timeout=3):
+    def clear_queue(self, timeout:float=3)->bool:
+        """Wait until queue are clear or timeout runs out."""
         messages = [
             "M400",
             "M118 E1 done"
@@ -36,7 +37,7 @@ class SerialManager:
         start = time.perf_counter()
 
         while True:
-            response = self.ser.readline().decode('utf-8')
+            response = self.ser.readline().decode("utf-8")
             re_match = re.search("echo:done", response)
             if re_match is not None:
                 return True
