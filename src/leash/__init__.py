@@ -19,7 +19,7 @@ class Lumen:
                  bot_cam:bool = False
                  )->None:
         """Initialize of Lumen class object."""
-        self.log = logging.getLogger("Lumen")
+        self.log = logging.getLogger("Tester.Lumen")
         self.sm = SerialManager(self.log)
         self.photon = Photon(self.sm, self.log)
         self.leftPump = Pump("LEFT", self.sm, self.log)
@@ -122,8 +122,21 @@ class Lumen:
         if b is not None:
             command = command + " B" + str(b)
             self.position["b"] = b
-        self.log.info(command)
+        self.log.debug(command)
         self.sm.send(command)
+
+    def get_current_pos(self)->str:
+        """Ask driver about current position and return it."""
+        # X:0.00 Y:0.00 Z:31.50 A:720.00 B:720.00 Count X:0 Y:0 Z:1260 A:3197 B:3197
+        respond = self.sm.send("M114")
+        parts = respond.split("Count")
+        position_parts = parts[0].split(" ")
+        self.position.update({"x":float(position_parts[0].strip().removeprefix("X:"))})
+        self.position.update({"y":float(position_parts[1].strip().removeprefix("Y:"))})
+        self.position.update({"z":float(position_parts[2].strip().removeprefix("Z:"))})
+        self.position.update({"a":float(position_parts[3].strip().removeprefix("A:"))})
+        self.position.update({"b":float(position_parts[4].strip().removeprefix("B:"))})
+        return self.position
 
     def set_speed(self, f:float | None = None)->None:
         """Set speed for Lumen head."""
@@ -166,7 +179,7 @@ class Lumen:
 
     def home(self, *, x:bool = True, y:bool = True, z:bool = True)->None:
         """Perform homing on given axis. Default on all axis."""
-        self.log.info("Homing")
+        self.log.debug("Homing")
         self.send_pre_homing_commands()
         if x and y and z:
             self.sm.send("G28")
@@ -225,4 +238,4 @@ class Lumen:
         """Turn light on for given camera index, with given color settings."""
         s = 0 if index == "BOT" else 1
         self.sm.send(f"M150 P{a} R{r} U{g} B{b} S{s}")
-        self.log.info("turned on light yo")
+        self.log.debug("turned on light yo")

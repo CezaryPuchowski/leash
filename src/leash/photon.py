@@ -6,7 +6,6 @@ from logging import Logger
 
 from .serial import SerialManager
 
-
 MAX_ADDRESS = 0x0FF
 
 class Commands(enum.IntEnum):
@@ -92,7 +91,7 @@ class Photon:
     def send_packet(self, address:int, command: Commands,
                     payload:list|None = None)->list:
         """Send packet to LumenPnP."""
-        self.log.info("Sending packet payload: " + str(payload))
+        self.log.debug("Sending packet payload: " + str(payload))
         # builds a packet without crc
         if payload is None:
             packet = [address, 0x00, self._packetID, 1, command]
@@ -101,7 +100,7 @@ class Photon:
                       len(payload) + 1, command, *payload]
         sent_packet_id = self._packetID
         gcode = self.build_packet_from_bytes(packet)
-        self.log.info("Gcode to send: " + str(gcode))
+        self.log.debug("Gcode to send: " + str(gcode))
         # open serial, send packet, close it
         self.sm.ser.read_all()
         response = self.sm.send(gcode).strip()
@@ -143,7 +142,7 @@ class Photon:
 
     def get_feeder_uuid(self, address):
 
-        self.log.info("Requesting UUID from address: " + str(address))
+        self.log.debug("Requesting UUID from address: " + str(address))
         resp = self.send_packet(address, Commands.GET_FEEDER_ID)
 
         if resp == -1:
@@ -158,7 +157,7 @@ class Photon:
 
     def initialize_feeder(self, address, uuid)->bool:
 
-        self.log.info("Requesting init at address: " + str(address))
+        self.log.debug("Requesting init at address: " + str(address))
         resp = self.send_packet(address, Commands.INITIALIZE_FEEDER, payload = uuid)
         return bool(resp != -1 and resp[0] == 0)
 
@@ -167,7 +166,7 @@ class Photon:
 
     def move_feed_forward(self, address, tenths)->bool:
 
-        self.log.info("Requesting " + str(tenths) + " feed from address: " + str(address))
+        self.log.debug("Requesting " + str(tenths) + " feed from address: " + str(address))
         resp = self.send_packet(address, Commands.MOVE_FEED_FORWARD, payload = [tenths])
         return resp[0] == 0
 
@@ -199,7 +198,7 @@ class Photon:
                 #initialize
                 if self.initialize_feeder(i, uuid):
 
-                    self.log.info("Initialized feeder " + str(uuid) + " at address " + str(i))
+                    self.log.debug("Initialized feeder " + str(uuid) + " at address " + str(i))
 
                     # add to list of active feeders
                     self.activeFeeders.append(uuid)
@@ -215,7 +214,7 @@ class Photon:
     def identify_feeder(self, uuid)->bool:
 
         message = f"Requesting identify from UUID: {uuid!s}"
-        self.log.info(message)
+        self.log.debug(message)
         resp = self.send_packet(0xFF, Commands.IDENTIFY_FEEDER, payload = uuid)
         return resp[0] == 0
 

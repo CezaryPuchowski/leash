@@ -45,7 +45,6 @@ class SerialManager:
             if time.perf_counter() - start > timeout:
                 return False
 
-
     def scan_ports(self):
 
         comports = serial.tools.list_ports.comports()
@@ -57,7 +56,7 @@ class SerialManager:
                 try:
                     s = serial.Serial(port)
                     s.close()
-                    self.log.info("Found motherboard at port: " + " with hwid: " + hwid)
+                    self.log.debug("Found motherboard at port: " + " with hwid: " + hwid)
                     self.ser.port = port
                     return True
 
@@ -69,7 +68,7 @@ class SerialManager:
 
     def open_serial(self):
         if self.ser.is_open:
-            self.log.info("Serial port already open")
+            self.log.debug("Serial port already open")
             return True
 
         if self.ser.port != "":
@@ -80,7 +79,7 @@ class SerialManager:
             return False
 
         if self.ser.is_open:
-            self.log.info("Connected to Lumen over serial port: " + self.ser.port)
+            self.log.debug("Connected to Lumen over serial port: " + self.ser.port)
             self.ser.read_all()
             return True
         else:
@@ -89,7 +88,7 @@ class SerialManager:
 
     def send(self, message):
         # send can return two things
-        # it can return bool False if port isnt open
+        # it can return bool False if port isn't open
         # or it can respond with marlin's response
 
         #check to see if serial port is open
