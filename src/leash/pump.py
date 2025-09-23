@@ -34,15 +34,15 @@ class Pump:
 
             #read addresses 0x06 0x07 and 0x08 for pressure reading
             self.sm.send("M260 A109 B6 S1")
-            msb = re.search("data:(..)", self.sm.send("M261 A109 B1 S1"))
+            msb = re.search("data:(..)", self.sm.send("M261 A109 B1 S1")).group(1)
 
             self.sm.send("M260 A109 B7 S1")
-            csb = re.search("data:(..)", self.sm.send("M261 A109 B1 S1"))
+            csb = re.search("data:(..)", self.sm.send("M261 A109 B1 S1")).group(1)
 
             self.sm.send("M260 A109 B8 S1")
-            lsb = re.search("data:(..)", self.sm.send("M261 A109 B1 S1"))
+            lsb = re.search("data:(..)", self.sm.send("M261 A109 B1 S1")).group(1)
 
-            val = msb.group(1)+csb.group(1)+lsb.group(1)
+            val = msb+csb+lsb
 
             result = int(val, 16)
 
@@ -54,6 +54,9 @@ class Pump:
             return False
 
         else:
+            log_message = f"Pressure for {self.index} pomp is: {result} "
+            log_message+= f"| MSB: {msb} CSB: {csb} LSB: {lsb}"
+            self.log.debug(log_message)
             return result
 
     def get_temperature(self)->bool:
@@ -83,27 +86,37 @@ class Pump:
             # Determine if temperature is positive or negative
             if adc_value < 2**15:
                 # Temperature is positive
-                return adc_value / 256.0
+                result = adc_value / 256.0
             # Temperature is negative, apply the formula
-            return (adc_value - 2**16) / 256.0
+            else:
+                result (adc_value - 2**16) / 256.0
 
         except Exception:
             self.log.exception()
             return False
 
+        else:
+            log_message = f"Temperature for {self.index} pomp is: {result} "
+            log_message+= f"| 0x09: {reg0x09} 0x0a: {reg0x0a}"
+            self.log.debug(log_message)
+            return result
+
     def off(self)->None:
         """Turn pump off."""
         if self.index == "LEFT":
+            self.log.debug("Turn left pomp off.")
             self.sm.send("M107")
             self.sm.send("M107 P1")
 
         elif self.index == "RIGHT":
+            self.log.debug("Turn right pomp off.")
             self.sm.send("M107 P2")
             self.sm.send("M107 P3")
 
     def on(self)->None:
         """Turn pump on."""
         if self.index == "LEFT":
+            self.log.debug("Turn left pomp on.")
             # turn on pump
             self.sm.send("M106")
             # turn on valve
@@ -113,6 +126,7 @@ class Pump:
             self.sm.send("M106 P1 S150")
 
         elif self.index == "RIGHT":
+            self.log.debug("Turn right pomp on.")
             #turn on pump
             self.sm.send("M106 P2 S255")
             #turn on valve
